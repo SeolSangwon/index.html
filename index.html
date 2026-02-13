@@ -4,94 +4,130 @@
     <meta charset="UTF-8">
     <title>초월자 강화확률 계산기</title>
     <style>
-        :root { --gold: #f1c40f; --electric: #00d2ff; --bg: #0b0e14; --card: #161b22; }
-        body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--bg); color: #e6edf3; display: flex; justify-content: center; padding: 20px; margin: 0; }
-        .container { background: var(--card); padding: 35px; border-radius: 24px; width: 100%; max-width: 450px; border: 1px solid #30363d; box-shadow: 0 15px 40px rgba(0,0,0,0.6); }
-        h1 { text-align: center; color: var(--gold); margin-bottom: 30px; font-size: 24px; letter-spacing: -1px; }
-        .section { margin-bottom: 25px; padding: 20px; background: #0d1117; border-radius: 16px; border: 1px solid #30363d; }
-        label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 12px; font-weight: 600; }
-        select { width: 100%; padding: 12px; background: #161b22; border: 1px solid #444; color: white; border-radius: 10px; font-size: 16px; appearance: none; cursor: pointer; }
+        :root { --gold: #f1c40f; --blue: #00d2ff; --bg: #0b0e14; --card: #161b22; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: #e6edf3; display: flex; justify-content: center; padding: 20px; margin: 0; }
+        .container { background: var(--card); padding: 30px; border-radius: 20px; width: 100%; max-width: 480px; border: 1px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
+        h1 { text-align: center; color: var(--gold); font-size: 22px; margin-bottom: 20px; }
         
-        /* 결과 영역 */
-        .final-result { margin-top: 10px; padding: 30px 20px; border-radius: 20px; text-align: center; background: linear-gradient(145deg, rgba(241, 196, 15, 0.1), rgba(0, 0, 0, 0)); border: 1px solid var(--gold); position: relative; overflow: hidden; }
-        .final-result::before { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(241, 196, 15, 0.05) 0%, transparent 70%); pointer-events: none; }
+        .promo-link { display: block; background: rgba(0, 210, 255, 0.1); color: var(--blue); text-align: center; padding: 12px; border-radius: 10px; text-decoration: none; font-weight: bold; margin-bottom: 25px; border: 1px solid var(--blue); transition: 0.3s; }
+        .promo-link:hover { background: var(--blue); color: #000; }
+
+        .section { margin-bottom: 20px; padding: 15px; background: #0d1117; border-radius: 12px; border: 1px solid #30363d; }
+        label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 8px; }
+        input, select { width: 100%; padding: 10px; background: #161b22; border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box; font-size: 15px; outline: none; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         
-        .label-text { font-size: 14px; color: #8b949e; margin-bottom: 10px; }
-        .value-text { font-size: 48px; font-weight: 800; color: var(--gold); text-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
+        .result-area { margin-top: 10px; padding: 30px 20px; border-radius: 15px; text-align: center; background: rgba(241, 196, 15, 0.05); border: 2px solid var(--gold); }
+        .final-val { font-size: 52px; font-weight: 800; color: var(--gold); margin: 10px 0; text-shadow: 0 0 15px rgba(241, 196, 15, 0.3); }
         
-        .info-text { font-size: 12px; color: #555; margin-top: 15px; line-height: 1.6; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .formula-footer { margin-top: 30px; font-size: 10px; color: #222; text-align: center; line-height: 1.4; user-select: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>초월자 강화확률 계산기</h1>
+
+    <a href="https://cafe.naver.com/bluegrayk6h5l" target="_blank" class="promo-link">
+        🔗 초월자 강화하기 카페 (공식 커뮤니티)
+    </a>
     
     <div class="section">
-        <label>강화 단계 선택</label>
-        <select id="stage" onchange="update()">
-            <option value="0.2">아비터 → 뮤탈 (기본 20%)</option>
-            <option value="0.15">뮤탈 → 배틀 (기본 15%)</option>
+        <label>강화 구간 선택 (소모량 반영)</label>
+        <select id="stage" onchange="calculate()">
+            <option value="0.2" data-consume="1">아비터 → 뮤탈 (20%, 소모 1개)</option>
+            <option value="0.15" data-consume="3">뮤탈 → 배틀 (15%, 소모 3개)</option>
         </select>
     </div>
 
     <div class="section grid">
-        <div>
-            <label>옵저버 (2회 지속)</label>
-            <select id="obs" onchange="update()">
-                <option value="1">미사용</option>
-                <option value="2">사용 (2배)</option>
-            </select>
+        <div><label>초월석 보유량</label><input type="number" id="stones" value="10" min="1" oninput="calculate()"></div>
+        <div><label>옵저버 보유량</label><input type="number" id="observers" value="0" min="0" oninput="calculate()"></div>
+    </div>
+
+    <div class="section">
+        <label>보유 주문서 (개수)</label>
+        <div class="grid">
+            <input type="number" id="s64" placeholder="64%" oninput="calculate()">
+            <input type="number" id="s32" placeholder="32%" oninput="calculate()">
+            <input type="number" id="s16" placeholder="16%" oninput="calculate()">
+            <input type="number" id="s8" placeholder="8%" oninput="calculate()">
         </div>
-        <div>
-            <label>강화 주문서</label>
-            <select id="scroll" onchange="update()">
-                <option value="0">미사용</option>
-                <option value="0.08">8% 주문서</option>
-                <option value="0.16">16% 주문서</option>
-                <option value="0.32">32% 주문서</option>
-                <option value="0.64">64% 주문서</option>
-            </select>
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #444; margin-top: 5px; padding: 0 5px;">
+            <span>64%</span><span>32%</span><span>16%</span><span>8%</span>
         </div>
     </div>
 
-    <div class="final-result">
-        <div class="label-text">초월석 1개당 최종 성공 확률 (P)</div>
-        <div id="P_val" class="value-text">41.67%</div>
-        <div class="info-text">
-            실패 시 65% 보존 규칙이 적용된<br>수학적 기대 확률입니다.
-        </div>
+    <div class="result-area">
+        <div style="font-size: 14px; color: #8b949e;">모든 자원 소진 시 최종 성공 확률</div>
+        <div id="finalProb" class="final-val">0%</div>
     </div>
 
-    <div style="text-align: center; margin-top: 25px;">
-        <span style="font-size: 11px; color: #444; border: 1px solid #333; padding: 4px 10px; border-radius: 20px;">
-            $P = \frac{p}{1 - 0.65(1 - p)}$
-        </span>
+    <div class="formula-footer">
+        P_total = Σ [p * {(1-p) * r}^n] (modified for cost k) <br>
+        (p: success_rate, r: preservation_rate 0.65, k: stone_cost) <br>
+        뮤탈→배틀 구간의 초월석 3개 소모 로직이 시뮬레이션에 포함되었습니다.
     </div>
 </div>
 
 <script>
-function update() {
-    const base = parseFloat(document.getElementById('stage').value);
-    const obsMult = parseFloat(document.getElementById('obs').value);
-    const scrollAdd = parseFloat(document.getElementById('scroll').value);
-    const r = 0.65; // 보존 확률
+function calculate() {
+    const stageSelect = document.getElementById('stage');
+    const baseP = parseFloat(stageSelect.value);
+    const costPerFail = parseInt(stageSelect.options[stageSelect.selectedIndex].getAttribute('data-consume'));
+    
+    const stones = parseInt(document.getElementById('stones').value) || 0;
+    const obsCount = parseInt(document.getElementById('observers').value) || 0;
+    
+    let scrolls = [];
+    const scrollData = [
+        {id: 's64', val: 0.64}, {id: 's32', val: 0.32},
+        {id: 's16', val: 0.16}, {id: 's8', val: 0.08}
+    ];
+    scrollData.forEach(s => {
+        const count = parseInt(document.getElementById(s.id).value) || 0;
+        for(let i=0; i<count; i++) scrolls.push(s.val);
+    });
 
-    // 1. p (단일 클릭 성공 확률) 내부 계산
-    let p = (base * obsMult) + scrollAdd;
-    if (p > 1) p = 1;
+    if (stones < costPerFail) {
+        document.getElementById('finalProb').innerText = "0%";
+        return;
+    }
 
-    // 2. P (등비급수 최종 확률) 계산
-    let P = p / (1 - r * (1 - p));
-    if (p >= 1) P = 1;
+    let successCount = 0;
+    const iterations = 50000;
 
-    // 화면 업데이트
-    document.getElementById('P_val').innerText = (P * 100).toFixed(2) + "%";
+    for (let i = 0; i < iterations; i++) {
+        let curStones = stones;
+        let curObsUses = obsCount * 2;
+        let curScrolls = [...scrolls];
+        let isSuccess = false;
+
+        // 초월석이 소모량(1개 또는 3개)보다 많이 남았을 때만 계속 시도
+        while (curStones >= costPerFail) {
+            let p = (curObsUses > 0) ? baseP * 2 : baseP;
+            if (curScrolls.length > 0) p += curScrolls.shift();
+            if (curObsUses > 0) curObsUses--;
+            if (p > 1) p = 1;
+
+            if (Math.random() < p) {
+                isSuccess = true;
+                break;
+            } else {
+                // 실패 시 65% 보존 규칙: 보존 실패(35%) 시에만 설정된 개수(1 or 3)만큼 소모
+                if (Math.random() >= 0.65) {
+                    curStones -= costPerFail;
+                }
+            }
+        }
+        if (isSuccess) successCount++;
+    }
+
+    const result = (successCount / iterations * 100).toFixed(2);
+    document.getElementById('finalProb').innerText = result + "%";
 }
 
-// 초기 실행
-update();
+window.onload = calculate;
 </script>
 
 </body>
