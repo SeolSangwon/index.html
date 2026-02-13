@@ -29,7 +29,7 @@
     <h1>초월자 강화확률 계산기</h1>
 
     <a href="https://cafe.naver.com/bluegrayk6h5l" target="_blank" class="promo-link">
-        🔗 초월자 강화하기 카페 (공식 커뮤니티)
+        🔗 초월자 강화하기 (공식카페)
     </a>
     
     <div class="section">
@@ -41,7 +41,7 @@
     </div>
 
     <div class="section grid">
-        <div><label>초월석 보유량</label><input type="number" id="stones" value="10" min="1" oninput="calculate()"></div>
+        <div><label>초월석 보유량</label><input type="number" id="stones" value="1" min="0" oninput="calculate()"></div>
         <div><label>옵저버 보유량</label><input type="number" id="observers" value="0" min="0" oninput="calculate()"></div>
     </div>
 
@@ -59,14 +59,14 @@
     </div>
 
     <div class="result-area">
-        <div style="font-size: 14px; color: #8b949e;">모든 자원 소진 시 최종 성공 확률</div>
-        <div id="finalProb" class="final-val">0%</div>
+        <div style="font-size: 14px; color: #8b949e;">최종 누적 성공 확률 (이론값)</div>
+        <div id="finalProb" class="final-val">0.00%</div>
     </div>
 
     <div class="formula-footer">
-        P_total = Σ [p * {(1-p) * r}^n] (modified for cost k) <br>
-        (p: success_rate, r: preservation_rate 0.65, k: stone_cost) <br>
-        뮤탈→배틀 구간의 초월석 3개 소모 로직이 시뮬레이션에 포함되었습니다.
+        P_total = 1 - Π (1 - P_eff_i) <br>
+        P_eff = p / (1 - r(1-p)) <br>
+        유한 등비급수와 조건부 확률을 결합하여 자원량에 따른 이론적 확률을 산출합니다.
     </div>
 </div>
 
@@ -74,57 +74,55 @@
 function calculate() {
     const stageSelect = document.getElementById('stage');
     const baseP = parseFloat(stageSelect.value);
-    const costPerFail = parseInt(stageSelect.options[stageSelect.selectedIndex].getAttribute('data-consume'));
+    const cost = parseInt(stageSelect.options[stageSelect.selectedIndex].getAttribute('data-consume'));
     
     const stones = parseInt(document.getElementById('stones').value) || 0;
-    const obsCount = parseInt(document.getElementById('observers').value) || 0;
+    const observers = parseInt(document.getElementById('observers').value) || 0;
     
     let scrolls = [];
-    const scrollData = [
-        {id: 's64', val: 0.64}, {id: 's32', val: 0.32},
-        {id: 's16', val: 0.16}, {id: 's8', val: 0.08}
-    ];
-    scrollData.forEach(s => {
-        const count = parseInt(document.getElementById(s.id).value) || 0;
-        for(let i=0; i<count; i++) scrolls.push(s.val);
+    const scrollIds = ['s64', 's32', 's16', 's8'];
+    const scrollVals = [0.64, 0.32, 0.16, 0.08];
+    scrollIds.forEach((id, idx) => {
+        const count = parseInt(document.getElementById(id).value) || 0;
+        for(let i=0; i<count; i++) scrolls.push(scrollVals[idx]);
     });
 
-    if (stones < costPerFail) {
-        document.getElementById('finalProb').innerText = "0%";
+    if (stones < cost) {
+        document.getElementById('finalProb').innerText = "0.00%";
         return;
     }
 
-    let successCount = 0;
-    const iterations = 50000;
+    let totalFailProb = 1.0;
+    let currentObs = observers * 2;
+    const r = 0.65; // 보존 확률
 
-    for (let i = 0; i < iterations; i++) {
-        let curStones = stones;
-        let curObsUses = obsCount * 2;
-        let curScrolls = [...scrolls];
-        let isSuccess = false;
+    let tempStones = stones;
 
-        // 초월석이 소모량(1개 또는 3개)보다 많이 남았을 때만 계속 시도
-        while (curStones >= costPerFail) {
-            let p = (curObsUses > 0) ? baseP * 2 : baseP;
-            if (curScrolls.length > 0) p += curScrolls.shift();
-            if (curObsUses > 0) curObsUses--;
-            if (p > 1) p = 1;
+    // 1. 주문서나 옵저버 등 특별 자원이 있는 동안 개별 시도 세트 계산
+    while (tempStones >= cost && (scrolls.length > 0 || currentObs > 0)) {
+        let p = (currentObs > 0) ? baseP * 2 : baseP;
+        if (scrolls.length > 0) p += scrolls.shift();
+        if (currentObs > 0) currentObs--;
+        if (p > 1) p = 1;
 
-            if (Math.random() < p) {
-                isSuccess = true;
-                break;
-            } else {
-                // 실패 시 65% 보존 규칙: 보존 실패(35%) 시에만 설정된 개수(1 or 3)만큼 소모
-                if (Math.random() >= 0.65) {
-                    curStones -= costPerFail;
-                }
-            }
-        }
-        if (isSuccess) successCount++;
+        // 초월석 1세트(1개 or 3개)를 완전히 잃기 전까지 이 확률 p로 성공할 실질 확률
+        let p_eff = p / (1 - r * (1 - p));
+        
+        // 이 세트에서 실패할 확률을 누적 곱함
+        totalFailProb *= (1 - p_eff);
+        tempStones -= cost;
     }
 
-    const result = (successCount / iterations * 100).toFixed(2);
-    document.getElementById('finalProb').innerText = result + "%";
+    // 2. 남은 초월석에 대해 기본 확률(baseP)로 남은 기회만큼 계산 (유한 등비급수)
+    if (tempStones >= cost) {
+        let remainingChances = Math.floor(tempStones / cost);
+        let p_eff_base = baseP / (1 - r * (1 - baseP));
+        totalFailProb *= Math.pow((1 - p_eff_base), remainingChances);
+    }
+
+    let finalSuccessProb = 1 - totalFailProb;
+    // 소수점 두 번째 자리까지 고정 출력
+    document.getElementById('finalProb').innerText = (finalSuccessProb * 100).toFixed(2) + "%";
 }
 
 window.onload = calculate;
