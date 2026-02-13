@@ -8,22 +8,31 @@
         body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: #e6edf3; display: flex; justify-content: center; padding: 20px; margin: 0; }
         .container { background: var(--card); padding: 30px; border-radius: 20px; width: 100%; max-width: 480px; border: 1px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         h1 { text-align: center; color: var(--gold); font-size: 22px; margin-bottom: 20px; }
+        
         .promo-link { display: block; background: rgba(0, 210, 255, 0.1); color: var(--blue); text-align: center; padding: 12px; border-radius: 10px; text-decoration: none; font-weight: bold; margin-bottom: 25px; border: 1px solid var(--blue); transition: 0.3s; }
         .promo-link:hover { background: var(--blue); color: #000; }
+
         .section { margin-bottom: 20px; padding: 15px; background: #0d1117; border-radius: 12px; border: 1px solid #30363d; }
         label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 8px; }
         input, select { width: 100%; padding: 10px; background: #161b22; border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box; font-size: 15px; outline: none; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
         .result-area { margin-top: 10px; padding: 30px 20px; border-radius: 15px; text-align: center; background: rgba(241, 196, 15, 0.05); border: 2px solid var(--gold); }
-        .final-val { font-size: 52px; font-weight: 800; color: var(--gold); margin: 10px 0; }
-        .formula-footer { margin-top: 30px; font-size: 10px; color: #222; text-align: center; line-height: 1.4; user-select: none; }
+        .final-val { font-size: 52px; font-weight: 800; color: var(--gold); margin: 10px 0; text-shadow: 0 0 15px rgba(241, 196, 15, 0.3); }
+        
+        /* 하단 설명글 가독성 개선 */
+        .formula-footer { margin-top: 30px; font-size: 11px; color: #8b949e; text-align: center; line-height: 1.6; border-top: 1px solid #30363d; padding-top: 15px; }
+        .formula-footer b { color: var(--blue); }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>초월자 강화확률 계산기</h1>
-    <a href="https://cafe.naver.com/bluegrayk6h5l" target="_blank" class="promo-link">🔗 초월자 강화하기 (공식카페)</a>
+
+    <a href="https://cafe.naver.com/bluegrayk6h5l" target="_blank" class="promo-link">
+        🔗 초월자 강화하기 (공식카페)
+    </a>
     
     <div class="section">
         <label>강화 구간 선택</label>
@@ -54,9 +63,9 @@
     </div>
 
     <div class="formula-footer">
-        P_final = Σ [P_click(n)] <br>
-        (매 클릭 시 주문서 소모 및 보존 확률을 고려한 상태 전이 행렬 연산) <br>
-        유한 자원 내에서 주문서가 순차적으로 소모되는 로직이 완벽히 반영되었습니다.
+        <b>계산 원리:</b> 매 클릭 시 주문서 순차 소모 로직 반영 <br>
+        실패 시 <b>65% 보존</b> 및 구간별 <b>초월석 소모량(1/3개)</b>을 고려한 <br>
+        상태 전이 확률 트리 시뮬레이션 결과입니다.
     </div>
 </div>
 
@@ -82,14 +91,12 @@ function calculate() {
     }
 
     let totalSuccess = 0;
-    // dp[i] = i개의 초월석을 가지고 있을 확률 (초기에는 보유량에 100%)
     let dp = new Array(stones + 1).fill(0);
     dp[stones] = 1.0;
 
     let currentObs = observers * 2;
-    const r = 0.65; // 보존 확률
+    const r = 0.65;
 
-    // 주문서나 옵저버가 있는 동안 클릭 단위로 시뮬레이션 (최대 1000회)
     let click = 0;
     while (click < 1000 && (scrolls.length > 0 || currentObs > 0)) {
         let p = (currentObs > 0) ? baseP * 2 : baseP;
@@ -102,29 +109,17 @@ function calculate() {
 
         for (let s = cost; s <= stones; s++) {
             if (dp[s] <= 0) continue;
-
-            // 1. 성공 확률
             success_this_click += dp[s] * p;
-
-            // 2. 실패 확률 중 보존 (돌 개수 유지)
             next_dp[s] += dp[s] * (1 - p) * r;
-
-            // 3. 실패 확률 중 소멸 (돌 개수 cost만큼 감소)
             next_dp[s - cost] += dp[s] * (1 - p) * (1 - r);
         }
 
         totalSuccess += success_this_click;
-        
-        // 돌이 부족해서 클릭을 못 하는 상태 확률 유지 (누적)
-        for (let s = 0; s < cost; s++) {
-            next_dp[s] += dp[s]; 
-        }
-
+        for (let s = 0; s < cost; s++) { next_dp[s] += dp[s]; }
         dp = next_dp;
         click++;
     }
 
-    // 남은 특수 자원이 없을 때, 남은 돌 분포에 무한 등비급수 적용
     let p_eff_base = baseP / (1 - r * (1 - baseP));
     for (let s = cost; s <= stones; s++) {
         if (dp[s] > 0) {
@@ -139,3 +134,4 @@ window.onload = calculate;
 </script>
 </body>
 </html>
+
